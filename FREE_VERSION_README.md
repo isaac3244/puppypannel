@@ -1,23 +1,25 @@
-# FREE / NO-STORAGE VERSION
+# Puppy Panel — Free Firebase / No Photos
 
-This package is configured for your Firebase project and does not require Firebase Storage.
+This build intentionally removes all photo features, so there are no disabled photo buttons or unavailable gallery sections.
 
-Works:
-- Owner/Puppy email/password login
-- Role checks
-- Synced tasks
+Included:
+- Owner/Puppy email + password login
+- Firebase role checks
+- Synced tasks and completion history
 - Rewards and Paw Points
-- Moods and calendar history
+- Mood check-ins and calendar history
+- Diary entries with shared/private choice
 - Daily messages
+- Love notes
+- Wish list
+- Quests and achievements
 - Appearance customization
-- Love notes / wish list
-- Private/shared diary entries in Firestore
+- Countdown and weekly recap
 
-Disabled:
-- Cloud photo uploads
+Not included:
+- Photo uploads
+- Memory gallery
+- Task/diary/reward image fields
+- Firebase Storage
 
-Before uploading to GitHub:
-1. Publish the included `firestore.rules` in Firebase Console.
-2. Upload the website files to the root of the `puppypannel` GitHub repository.
-3. Let GitHub Pages redeploy.
-4. Hard-refresh the site if an old cached version appears.
+You only need Firebase Authentication + Firestore for this version.

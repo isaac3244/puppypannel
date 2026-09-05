@@ -48,16 +48,16 @@ const defaults = {
     {emoji:"😔",label:"Sad"}, {emoji:"😡",label:"Grumpy"}, {emoji:"😈",label:"Mischievous"}, {emoji:"💕",label:"Loved"}
   ],
   tasks: [
-    {id:"t1",title:"Make the bed",desc:"Start the day cozy.",points:10,done:false,category:"Home",photo:null},
-    {id:"t2",title:"Drink some water",desc:"Hydration check.",points:5,done:false,category:"Wellness",photo:null},
-    {id:"t3",title:"Little check-in",desc:"Pick today’s mood.",points:5,done:false,category:"Daily",photo:null},
-    {id:"t4",title:"Write a diary note",desc:"Even a sentence counts.",points:10,done:false,category:"Reflection",photo:null}
+    {id:"t1",title:"Make the bed",desc:"Start the day cozy.",points:10,done:false,category:"Home"},
+    {id:"t2",title:"Drink some water",desc:"Hydration check.",points:5,done:false,category:"Wellness"},
+    {id:"t3",title:"Little check-in",desc:"Pick today’s mood.",points:5,done:false,category:"Daily"},
+    {id:"t4",title:"Write a diary note",desc:"Even a sentence counts.",points:10,done:false,category:"Reflection"}
   ],
   rewards: [
-    {id:"r1",title:"Movie Pick",cost:100,desc:"You choose the movie.",emoji:"🎬",photo:null},
-    {id:"r2",title:"Back Massage",cost:175,desc:"A cozy massage.",emoji:"💆",photo:null},
-    {id:"r3",title:"Ice Cream Date",cost:250,desc:"A sweet little date.",emoji:"🍦",photo:null},
-    {id:"r4",title:"Mystery Treat",cost:500,desc:"Owner chooses the surprise.",emoji:"🎁",photo:null}
+    {id:"r1",title:"Movie Pick",cost:100,desc:"You choose the movie.",emoji:"🎬"},
+    {id:"r2",title:"Back Massage",cost:175,desc:"A cozy massage.",emoji:"💆"},
+    {id:"r3",title:"Ice Cream Date",cost:250,desc:"A sweet little date.",emoji:"🍦"},
+    {id:"r4",title:"Mystery Treat",cost:500,desc:"Owner chooses the surprise.",emoji:"🎁"}
   ],
   consequences: [],
   pointTransactions: [{id:"p0",amount:350,reason:"Starter balance",date:new Date().toISOString()}],
@@ -65,7 +65,6 @@ const defaults = {
   diary: [],
   moodHistory: {},
   taskHistory: {},
-  photos: [],
   countdowns: [
     {id:"c1",title:"Next Date Night",date:new Date(Date.now()+7*86400000).toISOString().slice(0,10),emoji:"💗"}
   ],
@@ -333,12 +332,6 @@ function tasksView(owner){
   return `<section class="card">
     <div class="section-title"><h3>${escapeHtml(state.copy.tasksLabel)}</h3><span class="pill">${state.tasks.filter(t=>t.done).length}/${state.tasks.length}</span></div>
     <div class="stack">${state.tasks.map(taskItem).join("")}</div>
-  </section>
-  <section class="card">
-    <h3>Attach a task photo</h3>
-    <p class="muted">Choose a task, then add a photo from your phone.</p>
-    <select class="select" id="photo-task">${state.tasks.map(t=>`<option value="${t.id}">${escapeHtml(t.title)}</option>`)}</select>
-    <input class="input" type="file" id="task-photo" accept="image/*" capture="environment" style="margin-top:10px"/>
   </section>`;
 }
 function taskItem(t){
@@ -370,7 +363,7 @@ function calendarView(){
 function rewardsView(){
   return `<section class="card hero"><span class="kicker">Reward shop</span><h2>${points()} 🐾 available</h2></section>
   <section class="grid-2">${state.rewards.map(r=>`<div class="card reward">
-    ${r.photo?`<img class="reward-img" src="${r.photo}" alt="">`:`<div class="reward-img" style="display:grid;place-items:center;font-size:4rem">${r.emoji||"🎁"}</div>`}
+    <div class="reward-img" style="display:grid;place-items:center;font-size:4rem">${r.emoji||"🎁"}</div>
     <div><h3>${escapeHtml(r.title)}</h3><p class="muted">${escapeHtml(r.desc||"")}</p></div>
     <div class="row"><span class="pill">${r.cost} 🐾</span><button class="btn" data-redeem="${r.id}">Redeem</button></div>
   </div>`).join("")}</section>`;
@@ -387,10 +380,6 @@ function moreView(owner){
   <section class="card">
     <div class="section-title"><h3>Achievements</h3></div>
     <div class="badge-grid">${state.badges.map(b=>`<div class="badge" style="opacity:${b.unlocked?1:.35}"><div class="ico">${b.ico}</div><strong>${escapeHtml(b.title)}</strong></div>`).join("")}</div>
-  </section>
-  <section class="card">
-    <div class="section-title"><h3>Memory gallery</h3></div>
-    ${state.photos.length?`<div class="gallery">${state.photos.slice().reverse().map(p=>`<img src="${p.data}" alt="${escapeHtml(p.category||"memory")}">`).join("")}</div>`:`<div class="empty">Photos you add to tasks, moods, diary entries and rewards can live here.</div>`}
   </section>
   <section class="card">
     <div class="section-title"><h3>Random treat</h3></div>
@@ -412,7 +401,6 @@ function diaryCard(){
     <p class="muted">${escapeHtml(prompt)}</p>
     <textarea class="textarea" id="diary-text" placeholder="Write anything you want..."></textarea>
     <label class="small" style="margin-top:8px"><input type="checkbox" id="diary-shared" ${state.settings.diarySharedByDefault?"checked":""}> Share this entry with Owner</label>
-    <input class="input" type="file" id="diary-photo" accept="image/*" style="margin-top:8px">
     <button class="btn" data-action="save-diary" style="margin-top:10px">Save diary entry</button>
   </div>`;
 }
@@ -481,7 +469,7 @@ function activityView(){
     <div class="stack">${state.pointTransactions.slice().reverse().map(t=>`<div class="list-item"><span>${t.amount>=0?"➕":"➖"}</span><div><strong>${escapeHtml(t.reason)}</strong><div class="small muted">${new Date(t.date).toLocaleString()}</div></div><strong>${t.amount>0?"+":""}${t.amount}</strong></div>`).join("")}</div>
   </section>
   <section class="card"><div class="section-title"><h3>Shared diary entries</h3></div>
-    <div class="stack">${state.diary.filter(d=>d.shared).length?state.diary.filter(d=>d.shared).slice().reverse().map(d=>`<div class="card"><span class="kicker">${new Date(d.date).toLocaleString()}</span><p>${escapeHtml(d.text)}</p>${d.photo?`<img class="photo-preview" src="${d.photo}" alt="">`:""}</div>`).join(""):`<div class="empty">No shared entries yet.</div>`}</div>
+    <div class="stack">${state.diary.filter(d=>d.shared).length?state.diary.filter(d=>d.shared).slice().reverse().map(d=>`<div class="card"><span class="kicker">${new Date(d.date).toLocaleString()}</span><p>${escapeHtml(d.text)}</p></div>`).join(""):`<div class="empty">No shared entries yet.</div>`}</div>
   </section>`;
 }
 
@@ -604,7 +592,6 @@ function bindView(){
   });
   document.querySelectorAll("[data-copy-edit]").forEach(el=>el.oninput=()=>{state.copy[el.dataset.copyEdit]=el.value;save();});
   document.querySelectorAll("[data-theme]").forEach(el=>el.onclick=()=>{applyPreset(el.dataset.theme);save();renderShell();});
-  const taskPhoto=document.querySelector("#task-photo"); if(taskPhoto)taskPhoto.onchange=()=>handlePhoto(taskPhoto.files[0],"task",document.querySelector("#photo-task").value);
   const actions={
     "save-message":()=>{state.dailyMessage=document.querySelector("#daily-message").value;save();alert("Daily message saved ♡")},
     "save-diary":()=>saveDiary(),
@@ -626,12 +613,12 @@ function bindView(){
 
 function addTask(){
   const title=document.querySelector("#new-task-title").value.trim(); if(!title)return;
-  state.tasks.push({id:uid("t"),title,points:Number(document.querySelector("#new-task-points").value||0),category:document.querySelector("#new-task-category").value||"Task",desc:document.querySelector("#new-task-desc").value,done:false,photo:null});
+  state.tasks.push({id:uid("t"),title,points:Number(document.querySelector("#new-task-points").value||0),category:document.querySelector("#new-task-category").value||"Task",desc:document.querySelector("#new-task-desc").value,done:false});
   save();renderShell();
 }
 function addReward(){
   const title=document.querySelector("#new-reward-title").value.trim();if(!title)return;
-  state.rewards.push({id:uid("r"),title,cost:Number(document.querySelector("#new-reward-cost").value||0),emoji:document.querySelector("#new-reward-emoji").value||"🎁",desc:document.querySelector("#new-reward-desc").value,photo:null});
+  state.rewards.push({id:uid("r"),title,cost:Number(document.querySelector("#new-reward-cost").value||0),emoji:document.querySelector("#new-reward-emoji").value||"🎁",desc:document.querySelector("#new-reward-desc").value});
   save();renderShell();
 }
 function addConsequence(){
@@ -651,23 +638,8 @@ function addCountdown(){
 async function saveDiary(){
   if(state.session.role!=="puppy") return;
   const text=document.querySelector("#diary-text").value.trim(); if(!text)return;
-  const shared=document.querySelector("#diary-shared").checked, file=document.querySelector("#diary-photo").files[0];
-  let photo=null; if(file) photo=await uploadPhoto(file,"diary",null);
-  await db.collection("diaryEntries").add({authorUid:auth.currentUser.uid,text,shared,photo,date:new Date().toISOString()});
-}
-async function handlePhoto(file,category,refId){
-  if(!file)return; const data=await uploadPhoto(file,category,refId);
-  if(category==="task" && data){const t=state.tasks.find(x=>x.id===refId);if(t)t.photo=data}
-  save(); renderShell();
-}
-async function uploadPhoto(file,category,refId){
-  if(file){
-    alert("Photo uploads are disabled in the free version for now. Everything else still syncs normally.");
-  }
-  return null;
-}
-function fileToData(file){
-  return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=rej;r.readAsDataURL(file)});
+  const shared=document.querySelector("#diary-shared").checked;
+  await db.collection("diaryEntries").add({authorUid:auth.currentUser.uid,text,shared,date:new Date().toISOString()});
 }
 function showDay(key){
   const box=document.querySelector("#day-detail"),m=state.moodHistory[key],h=state.taskHistory[key],entries=state.diary.filter(d=>d.date.slice(0,10)===key);
