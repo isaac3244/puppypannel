@@ -1,0 +1,27 @@
+// Example Firestore rules concept.
+// Replace the emails below or, preferably, use custom claims / role documents.
+//
+// rules_version = '2';
+// service cloud.firestore {
+//   match /databases/{database}/documents {
+//     function signedIn() { return request.auth != null; }
+//     function isOwner() { return signedIn() && request.auth.token.email == "owner@example.com"; }
+//     function isPuppy() { return signedIn() && request.auth.token.email == "puppy@example.com"; }
+//
+//     match /{document=**} {
+//       allow read: if signedIn();
+//       allow write: if isOwner();
+//     }
+//
+//     match /diary/{entryId} {
+//       allow create: if isPuppy();
+//       allow read: if isPuppy() || (isOwner() && resource.data.shared == true);
+//       allow update, delete: if isPuppy();
+//     }
+//
+//     match /moods/{day} {
+//       allow create, update: if isPuppy();
+//       allow read: if signedIn();
+//     }
+//   }
+// }

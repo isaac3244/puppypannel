@@ -1,0 +1,16 @@
+{
+  "name": "Puppy Panel",
+  "short_name": "Puppy",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#fff0f7",
+  "theme_color": "#ff8fbd",
+  "icons": [
+    {
+      "src": "icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
