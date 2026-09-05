@@ -1,0 +1,29 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function me() { return get(/databases/$(database)/documents/users/$(request.auth.uid)); }
+    function isOwner() { return signedIn() && me().data.role == 'owner'; }
+    function isPuppy() { return signedIn() && me().data.role == 'puppy'; }
+
+    match /users/{uid} {
+      allow read: if signedIn() && request.auth.uid == uid;
+      allow write: if false;
+    }
+
+    match /app/shared {
+      allow read: if isOwner() || isPuppy();
+      allow create, delete: if isOwner();
+      allow update: if isOwner() || (isPuppy() &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'tasks','pointTransactions','redemptions','moodHistory','taskHistory','photos','wishlist','loveNotes','badges','quests'
+        ]));
+    }
+
+    match /diaryEntries/{entryId} {
+      allow create: if isPuppy() && request.resource.data.authorUid == request.auth.uid;
+      allow read: if (isPuppy() && resource.data.authorUid == request.auth.uid) || (isOwner() && resource.data.shared == true);
+      allow update, delete: if isPuppy() && resource.data.authorUid == request.auth.uid;
+    }
+  }
+}

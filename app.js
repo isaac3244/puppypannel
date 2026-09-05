@@ -1,4 +1,20 @@
 
+// Firebase-backed Puppy Panel v2
+if (!window.PUPPY_FIREBASE_CONFIG || window.PUPPY_FIREBASE_CONFIG.apiKey === "PASTE_YOURS_HERE") {
+  document.addEventListener("DOMContentLoaded", () => {
+    document.body.innerHTML = `<main class="login-shell"><section class="login-card glass"><div class="heart-badge">♡</div><h1>Firebase setup needed</h1><p class="muted">Open <code class="inline">firebase-config.js</code> and paste the Web App configuration from your Firebase console.</p></section></main>`;
+  });
+  throw new Error("Firebase config is not set.");
+}
+firebase.initializeApp(window.PUPPY_FIREBASE_CONFIG);
+const auth = firebase.auth();
+const db = firebase.firestore();
+let selectedLoginRole = null;
+let sharedUnsub = null;
+let diaryUnsub = null;
+let cloudReady = false;
+
+
 const STORAGE_KEY = "puppyPanelDataV1";
 
 const defaults = {
@@ -97,7 +113,16 @@ function deepMerge(target, source){
   }
   return target;
 }
-function save(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); applyTheme(); }
+function save(){
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  applyTheme();
+  if(cloudReady && auth.currentUser){
+    const payload=structuredClone(state);
+    delete payload.session;
+    delete payload.diary; // diary has its own protected collection
+    db.collection("app").doc("shared").set(payload,{merge:true}).catch(console.error);
+  }
+}
 function uid(prefix="id"){ return prefix + Math.random().toString(36).slice(2,9); }
 function today(){ return new Date().toISOString().slice(0,10); }
 function points(){ return state.pointTransactions.reduce((s,t)=>s+Number(t.amount||0),0); }
@@ -122,17 +147,79 @@ const ownerNav = [
 
 function boot(){
   applyTheme();
-  if(!state.session.role) renderLogin(); else renderShell();
   if("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(()=>{});
+  auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).then(()=>{
+    auth.onAuthStateChanged(async user=>{
+      if(!user){
+        cloudReady=false;
+        if(sharedUnsub) sharedUnsub(); if(diaryUnsub) diaryUnsub();
+        state.session={role:null,route:"home"}; renderLogin(); return;
+      }
+      try{
+        const roleSnap=await db.collection("users").doc(user.uid).get();
+        if(!roleSnap.exists) throw new Error("This account has no Puppy Panel role yet.");
+        const role=roleSnap.data().role;
+        if(!["owner","puppy"].includes(role)) throw new Error("Invalid Puppy Panel role.");
+        state.session={role,route:"home",uid:user.uid};
+        const sharedRef=db.collection("app").doc("shared");
+        const existing=await sharedRef.get();
+        if(!existing.exists && role==="owner"){
+          const seed=structuredClone(defaults); delete seed.session; delete seed.diary;
+          await sharedRef.set(seed);
+        }
+        cloudReady=true;
+        watchShared(); watchDiary();
+      }catch(err){ alert(err.message); await auth.signOut(); }
+    });
+  });
+}
+
+function watchShared(){
+  if(sharedUnsub) sharedUnsub();
+  sharedUnsub=db.collection("app").doc("shared").onSnapshot(snap=>{
+    if(!snap.exists)return;
+    const session=state.session, diary=state.diary;
+    state=deepMerge(structuredClone(defaults),snap.data());
+    state.session=session; state.diary=diary;
+    localStorage.setItem(STORAGE_KEY,JSON.stringify(state)); applyTheme(); renderShell();
+  },console.error);
+}
+function watchDiary(){
+  if(diaryUnsub) diaryUnsub();
+  const user=auth.currentUser; if(!user)return;
+  let q=db.collection("diaryEntries").orderBy("date","asc");
+  if(state.session.role==="owner") q=q.where("shared","==",true);
+  else q=q.where("authorUid","==",user.uid);
+  diaryUnsub=q.onSnapshot(snap=>{
+    state.diary=snap.docs.map(d=>({id:d.id,...d.data()}));
+    localStorage.setItem(STORAGE_KEY,JSON.stringify(state)); renderShell();
+  },err=>{
+    console.error("Diary query:",err);
+    // Fallback avoids a blank app if an index is still being created.
+    state.diary=[]; renderShell();
+  });
 }
 
 function renderLogin(){
   const app=document.querySelector("#app");
   app.innerHTML=document.querySelector("#login-template").innerHTML;
   app.querySelectorAll("[data-copy]").forEach(el=>el.textContent=state.copy[el.dataset.copy]||el.textContent);
-  app.querySelectorAll("[data-login-role]").forEach(btn=>btn.onclick=()=>{
-    state.session.role=btn.dataset.loginRole; state.session.route="home"; save(); renderShell();
+  app.querySelectorAll("[data-select-role]").forEach(btn=>btn.onclick=()=>{
+    selectedLoginRole=btn.dataset.selectRole;
+    document.querySelector("#role-chooser").style.display="none";
+    document.querySelector("#login-form").style.display="grid";
+    document.querySelector("#selected-role-label").textContent=selectedLoginRole==="owner"?"🎀 Owner":"🐾 Puppy";
   });
+  document.querySelector("#back-to-roles").onclick=()=>{document.querySelector("#login-form").style.display="none";document.querySelector("#role-chooser").style.display="grid";};
+  document.querySelector("#login-form").onsubmit=async e=>{
+    e.preventDefault(); const error=document.querySelector("#login-error"); error.style.display="none";
+    try{
+      const cred=await auth.signInWithEmailAndPassword(document.querySelector("#login-email").value.trim(),document.querySelector("#login-password").value);
+      const roleSnap=await db.collection("users").doc(cred.user.uid).get();
+      const actual=roleSnap.exists?roleSnap.data().role:null;
+      if(actual!==selectedLoginRole){ await auth.signOut(); throw new Error(`That account belongs to the ${actual||"unassigned"} panel.`); }
+    }catch(err){ error.textContent=String(err.message||err).replace("Firebase: ",""); error.style.display="block"; }
+  };
 }
 
 function renderShell(){
@@ -524,7 +611,7 @@ function bindView(){
     "save-love-note":()=>{const x=document.querySelector("#love-note");if(x.value.trim()){state.loveNotes.push({id:uid("l"),from:state.session.role==="owner"?state.profile.ownerName:state.profile.puppyName,text:x.value.trim(),date:new Date().toISOString()});save();renderShell();}},
     "add-wish":()=>{const x=document.querySelector("#wish-input");if(x.value.trim()){state.wishlist.push({id:uid("w"),text:x.value.trim(),done:false});save();renderShell();}},
     "random-treat":()=>{const r=state.rewards[Math.floor(Math.random()*state.rewards.length)];document.querySelector("#random-treat-result").innerHTML=r?`<div class="notice">${r.emoji||"🎁"} <strong>${escapeHtml(r.title)}</strong> — ${escapeHtml(r.desc||"")}</div>`:"No rewards yet."},
-    "logout":()=>{state.session={role:null,route:"home"};save();renderLogin();},
+    "logout":()=>auth.signOut(),
     "add-task":()=>addTask(),
     "add-reward":()=>addReward(),
     "add-consequence":()=>addConsequence(),
@@ -561,19 +648,23 @@ function addCountdown(){
   const title=document.querySelector("#countdown-title").value.trim(),date=document.querySelector("#countdown-date").value;if(!title||!date)return;
   state.countdowns.unshift({id:uid("c"),title,date,emoji:"💗"});save();renderShell();
 }
-function saveDiary(){
+async function saveDiary(){
+  if(state.session.role!=="puppy") return;
   const text=document.querySelector("#diary-text").value.trim(); if(!text)return;
   const shared=document.querySelector("#diary-shared").checked, file=document.querySelector("#diary-photo").files[0];
-  if(file){
-    fileToData(file).then(data=>{state.diary.push({id:uid("d"),text,shared,photo:data,date:new Date().toISOString()});state.photos.push({id:uid("ph"),data,category:"Diary",date:new Date().toISOString()});save();renderShell();});
-  }else{state.diary.push({id:uid("d"),text,shared,photo:null,date:new Date().toISOString()});save();renderShell();}
+  let photo=null; if(file) photo=await uploadPhoto(file,"diary",null);
+  await db.collection("diaryEntries").add({authorUid:auth.currentUser.uid,text,shared,photo,date:new Date().toISOString()});
 }
-function handlePhoto(file,category,refId){
-  if(!file)return; fileToData(file).then(data=>{
-    state.photos.push({id:uid("ph"),data,category,refId,date:new Date().toISOString()});
-    if(category==="task"){const t=state.tasks.find(x=>x.id===refId);if(t)t.photo=data}
-    save();renderShell();
-  });
+async function handlePhoto(file,category,refId){
+  if(!file)return; const data=await uploadPhoto(file,category,refId);
+  if(category==="task" && data){const t=state.tasks.find(x=>x.id===refId);if(t)t.photo=data}
+  save(); renderShell();
+}
+async function uploadPhoto(file,category,refId){
+  if(file){
+    alert("Photo uploads are disabled in the free version for now. Everything else still syncs normally.");
+  }
+  return null;
 }
 function fileToData(file){
   return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=rej;r.readAsDataURL(file)});
@@ -584,7 +675,7 @@ function showDay(key){
   box.innerHTML=`<h3>${new Date(key+"T12:00:00").toLocaleDateString(undefined,{weekday:"long",month:"long",day:"numeric"})}</h3>
   <p>${m?`Mood: ${m.emoji} ${escapeHtml(m.label)}`:"No mood logged."}</p>
   <p>${h?`Tasks: ${h.done}/${h.total} completed`:"No task history."}</p>
-  ${entries.length?`<div class="hr"></div>${entries.map(e=>`<p>${e.shared?escapeHtml(e.text):"🔒 Private diary entry"}</p>`).join("")}`:""}`;
+  ${entries.length?`<div class="hr"></div>${entries.map(e=>`<p>${state.session.role==="puppy"||e.shared?escapeHtml(e.text):"🔒 Private diary entry"}</p>`).join("")}`:""}`;
 }
 function applyPreset(name){
   const presets={

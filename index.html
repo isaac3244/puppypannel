@@ -18,19 +18,26 @@
         <div class="heart-badge">♡</div>
         <h1 data-copy="appTitle">Puppy Panel</h1>
         <p class="muted">A cozy little world for two.</p>
-        <div class="login-grid">
-          <button class="role-card owner-card" data-login-role="owner">
+        <div class="login-grid" id="role-chooser">
+          <button class="role-card owner-card" data-select-role="owner">
             <span class="role-emoji">🎀</span>
             <strong data-copy="ownerLabel">Owner Panel</strong>
             <small>Manage tasks, rewards, themes & more</small>
           </button>
-          <button class="role-card puppy-card" data-login-role="puppy">
+          <button class="role-card puppy-card" data-select-role="puppy">
             <span class="role-emoji">🐾</span>
             <strong data-copy="puppyLabel">Puppy Panel</strong>
             <small>Check in, earn treats & keep memories</small>
           </button>
         </div>
-        <div class="demo-note">Demo login: choose either panel. Add Firebase later for private accounts.</div>
+        <form id="login-form" class="stack" style="display:none;margin-top:22px;text-align:left">
+          <div class="row"><button type="button" class="btn secondary small" id="back-to-roles">← Back</button><span class="pill" id="selected-role-label"></span></div>
+          <label>Email<input class="input" id="login-email" type="email" autocomplete="email" required></label>
+          <label>Password<input class="input" id="login-password" type="password" autocomplete="current-password" required></label>
+          <button class="btn" type="submit">Sign in</button>
+          <div id="login-error" class="notice" style="display:none"></div>
+        </form>
+        <div class="demo-note">Secure Firebase login. Cloud photo uploads are disabled in this free version.</div>
       </section>
     </main>
   </template>
@@ -54,6 +61,10 @@
     </div>
   </template>
 
+  <script src="https://www.gstatic.com/firebasejs/12.2.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/12.2.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore-compat.js"></script>
+  <script src="firebase-config.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
